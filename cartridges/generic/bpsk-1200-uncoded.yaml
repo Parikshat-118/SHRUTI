@@ -1,0 +1,13 @@
+# Simplest possible digital link: uncoded BPSK. The baseline case, and the one
+# where SHRUTI must honestly report "no FEC detected" rather than inventing one.
+id: generic/bpsk-1200-uncoded
+name: Uncoded BPSK 1200 Bd
+band: VHF
+licence: CC-BY-4.0
+chain:
+  - source:    {bits: payload}
+  - mapper:    {type: psk, order: 2}
+  - shaping:   {type: rrc, rolloff: 0.35}
+  - modulator: {symbol_rate_bd: 1200, centre_hz: 0}
+priors:
+  symbol_rate_bd: {values: [300, 600, 1200, 2400, 4800, 9600], tolerance_ppm: 200}

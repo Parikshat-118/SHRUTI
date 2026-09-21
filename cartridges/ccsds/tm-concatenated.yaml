@@ -1,0 +1,50 @@
+# CCSDS 131.0-B TM Synchronization and Channel Coding - concatenated downlink.
+#
+# This one cartridge exercises most of the chain at once:
+#   - block interleaving, via the RS interleaving depth I
+#   - pseudo-random scrambling, via the CCSDS pseudo-randomiser
+#   - RS block code, short-constraint convolutional + Viterbi, concatenated
+#   - a fixed 32-bit sync marker at a fixed period -> header -> payload
+#
+# Processing order is the standard's own:
+#   RS encode -> interleave (depth I) -> pseudo-randomise -> attach ASM -> convolutional encode
+#
+# Honest limits, declared rather than hidden:
+#   * basis: conventional.  CCSDS specifies a dual-basis symbol representation
+#     for RS; SHRUTI implements the conventional (power) basis.  Self-consistent
+#     and correct against any conventional-basis implementation, but a real
+#     ground-station capture needs the dual-basis transform applied first.
+#   * puncturing patterns are implemented but not yet verified bit-for-bit
+#     against the Blue Book.
+
+id: ccsds/tm-concatenated
+name: CCSDS TM concatenated (RS + convolutional)
+band: space
+licence: CC-BY-4.0
+reference: CCSDS 131.0-B, TM Synchronization and Channel Coding
+
+chain:
+  - source:            {bits: payload}
+  - fec_outer:         {type: rs, n: 255, k: 223, fcr: 0, prim: 1, basis: conventional}
+  - interleaver_outer: {type: block, rows: 5, cols: 255, unit: symbol}
+  - scrambler:         {type: additive, poly: "0b10101001", seed: "0xFF", width: 8}
+  - sync:              {hex: "1ACFFC1D", period_bits: 8920}
+  - fec:               {type: convolutional, K: 7, rate: "1/2", poly: ["0o171", "0o133"], invert: [false, true]}
+  - mapper:            {type: psk, order: 4, mapping: gray}
+  - shaping:           {type: rrc, rolloff: 0.35}
+  - modulator:         {symbol_rate_bd: 2000000, centre_hz: 0}
+
+priors:
+  symbol_rate_bd: {range: [100000, 10000000]}
+  rolloff:        {values: [0.25, 0.35, 0.5], tolerance: 0.03}
+
+identifiability:
+  centre_hz:      absolute_if_sidecar_else_relative
+  symbol_rate_bd: relative_until_anchored
+
+notes: |
+  RS interleaving depth I is in {1,2,3,4,5,8}; I=1 means no interleaving.
+  This cartridge uses I=5, which is the common deep-space choice.
+  The Attached Sync Marker 0x1ACFFC1D precedes each CADU; the transfer frame
+  header follows it, then the payload - which is exactly the structure L7's
+  entropy profile segments automatically.

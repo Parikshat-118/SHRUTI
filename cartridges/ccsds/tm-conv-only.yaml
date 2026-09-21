@@ -1,0 +1,19 @@
+# CCSDS 131.0-B convolutional-only downlink: the canonical short-constraint
+# code, with no outer code.  The simplest cartridge
+# that still exercises Viterbi decoding.
+id: ccsds/tm-conv-r12
+name: CCSDS TM convolutional K=7 r=1/2
+band: space
+licence: CC-BY-4.0
+reference: CCSDS 131.0-B
+
+chain:
+  - source:    {bits: payload}
+  - sync:      {hex: "1ACFFC1D", period_bits: 8920}
+  - fec:       {type: convolutional, K: 7, rate: "1/2", poly: ["0o171", "0o133"], invert: [false, true]}
+  - mapper:    {type: psk, order: 2}
+  - shaping:   {type: rrc, rolloff: 0.5}
+  - modulator: {symbol_rate_bd: 1000000, centre_hz: 0}
+
+priors:
+  symbol_rate_bd: {range: [50000, 8000000]}

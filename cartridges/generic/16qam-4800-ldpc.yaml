@@ -1,0 +1,14 @@
+# 16-QAM with LDPC - the fourth FEC family, and a convolutional
+# interleaver, which is the type with NO frame boundary (the discriminator
+# against block interleaving).
+id: generic/16qam-4800-ldpc
+name: 16-QAM 4800 Bd, LDPC rate 1/2, convolutional interleaver
+band: UHF
+licence: CC-BY-4.0
+chain:
+  - source:      {bits: payload}
+  - fec:         {type: ldpc, n: 504, wc: 3, wr: 6, seed: 42}
+  - interleaver: {type: convolutional, branches: 12, delay: 6}
+  - mapper:      {type: qam, order: 16}
+  - shaping:     {type: rrc, rolloff: 0.25}
+  - modulator:   {symbol_rate_bd: 4800, centre_hz: 0}

@@ -1,0 +1,15 @@
+# PSEUDO-RANDOM interleaver - the fourth type, and the one place the
+# mathematics genuinely refuses. SHRUTI detects it and bounds its period; it does
+# NOT claim to recover the permutation blindly. Included precisely so the honest
+# refusal has something to refuse on.
+id: generic/qpsk-2400-pseudorandom
+name: QPSK 2400 Bd, pseudo-random interleaver
+band: HF
+licence: CC-BY-4.0
+chain:
+  - source:      {bits: payload}
+  - fec:         {type: convolutional, K: 7, rate: "1/2", poly: ["0o171", "0o133"]}
+  - interleaver: {type: pseudo_random, size: 1152, seed: "0xBAD"}
+  - mapper:      {type: psk, order: 4}
+  - shaping:     {type: rrc, rolloff: 0.35}
+  - modulator:   {symbol_rate_bd: 2400, centre_hz: 1800, ssb: usb}

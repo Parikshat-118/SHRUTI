@@ -1,0 +1,96 @@
+SHRUTI — blind signal exploitation, samples to bits
+Copyright 2026 The SHRUTI contributors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+================================================================================
+LICENCE POSITION
+================================================================================
+
+Every runtime dependency is BSD-3, MIT or Apache-2.0.
+Zero LGPL. Zero GPL. Zero exceptions.
+
+This is deliberate and enforced by CI (.github/workflows/ci.yml, "licences"
+job). The point is not tidiness: a permissive dependency tree is what allows
+the capability to be forked privately, extended with material that is never
+published, and deployed without a procurement conversation about copyleft
+obligations.
+
+RUNTIME DEPENDENCIES
+--------------------
+  numpy                BSD-3-Clause
+  scipy                BSD-3-Clause
+  PyYAML               MIT
+  fastapi     [gui]    MIT
+  uvicorn     [gui]    BSD-3-Clause
+  python-multipart [gui]  Apache-2.0
+  React, Vite, Zustand, TypeScript (frontend, bundled)   MIT / Apache-2.0
+
+DEVELOPMENT / TEST ONLY — never imported at runtime
+---------------------------------------------------
+  pytest               MIT
+  galois               MIT        independent GF(2)/GF(256) cross-check
+  commpy               BSD-3      independent Viterbi/RS cross-check
+
+DELIBERATELY NOT USED
+---------------------
+  sigmf-python   LGPL-3.0   The SigMF specification is implemented directly
+                            (shruti/l0_container/sigmf_io.py) rather than
+                            importing this binding, so no LGPL obligation
+                            attaches to the runtime.
+
+  libsndfile /   LGPL-3.0   Audio I/O uses the Python standard library `wave`
+  soundfile                 module instead, which also removes a binary
+                            dependency from the air-gapped installer.
+
+  komm           GPL-3.0    Not used. The GF(2)/GF(256) algebra, convolutional
+                            encoder, Viterbi decoder, Reed-Solomon codec and
+                            LDPC belief-propagation decoder in shruti/l6_fec
+                            are original work under this Apache-2.0 licence.
+
+  GNU Radio      GPL-3.0    Used ONLY as an out-of-process validation oracle,
+                            invoked by subprocess over files. Never imported,
+                            never linked, never in the same address space.
+                            The validation evidence ships; the GPL does not.
+
+  Universal      GPL-3.0    Benchmarked against (see the design document's
+  Radio Hacker              evaluation section). No code copied.
+
+  WB_Signal_     no licence No licence means no rights granted. Not used.
+  Analyzer
+
+DATA, LICENSED SEPARATELY FROM CODE
+-----------------------------------
+  cartridges/    CC-BY-4.0  Waveform definitions are DATA, not code, and are
+  corpus/                   licensed apart from the engine. This separation is
+                            what allows a deploying organisation to maintain
+                            public, restricted and private cartridge tiers
+                            without forking the engine.
+
+STANDARDS REFERENCED
+--------------------
+  CCSDS 131.0-B   TM Synchronization and Channel Coding (public Blue Book)
+  CCSDS 401.0-B   Radio Frequency and Modulation Systems
+  ITU-R F.1487    HF ionospheric channel simulator (Watterson model)
+  SigMF           Signal Metadata Format specification (CC-BY-SA-4.0) —
+                  specification text is referenced, not reproduced.
+
+Standards are referenced and implemented from their public descriptions. No
+specification text is reproduced in this repository.
+
+KNOWN DEVIATIONS FROM REFERENCED STANDARDS
+------------------------------------------
+Declared rather than discovered — see README.md "Honest limits":
+
+  * Reed-Solomon uses the conventional (power) basis. CCSDS 131.0-B
+    additionally specifies a dual-basis symbol representation, which is not
+    implemented. Cartridges declare this as `basis: conventional`.
+  * Convolutional puncturing patterns are implemented but have not been
+    verified bit-for-bit against the Blue Book.
+  * The LDPC family is SHRUTI-defined and fully specified by (n, wc, wr, seed).
+    It is not a reproduction of the CCSDS AR4JA or IEEE 802.11n matrices;
+    published matrices load through the documented `from_alist` hook.

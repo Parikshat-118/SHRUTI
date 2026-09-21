@@ -1,0 +1,16 @@
+# CCSDS RS(255,239) with E=8, the lighter of the two RS options in 131.0-B.
+id: ccsds/tm-rs-255-239
+name: CCSDS TM Reed-Solomon (255,239)
+band: space
+licence: CC-BY-4.0
+reference: CCSDS 131.0-B
+
+chain:
+  - source:            {bits: payload}
+  - fec_outer:         {type: rs, n: 255, k: 239, fcr: 0, prim: 1, basis: conventional}
+  - interleaver_outer: {type: block, rows: 4, cols: 255, unit: symbol}
+  - scrambler:         {type: additive, poly: "0b10101001", seed: "0xFF", width: 8}
+  - sync:              {hex: "1ACFFC1D", period_bits: 8160}
+  - mapper:            {type: psk, order: 4}
+  - shaping:           {type: rrc, rolloff: 0.35}
+  - modulator:         {symbol_rate_bd: 2000000, centre_hz: 0}

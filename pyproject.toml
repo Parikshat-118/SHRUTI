@@ -1,0 +1,63 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "shruti"
+version = "2.0.0"
+description = "Blind RF signal exploitation: samples to bits."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Apache-2.0" }
+keywords = ["sdr", "sigint", "dsp", "fec", "viterbi", "reed-solomon", "ldpc", "sigmf", "blind-demodulation"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Topic :: Communications :: Ham Radio",
+    "Topic :: Scientific/Engineering",
+]
+
+# Every runtime dependency is BSD-3, MIT or Apache-2.0.
+# Zero LGPL. Zero GPL. Zero exceptions. This is what lets the capability be
+# forked privately, extended with material that is never published, and
+# deployed without a copyleft obligation.
+dependencies = [
+    "numpy>=1.24",      # BSD-3
+    "scipy>=1.10",      # BSD-3
+    "PyYAML>=6.0",      # MIT
+]
+
+[project.optional-dependencies]
+gui = [
+    "fastapi>=0.110",       # MIT
+    "uvicorn>=0.27",        # BSD-3
+    "python-multipart>=0.0.9",  # Apache-2.0
+]
+# Optional cross-validation oracles only - never imported at runtime.
+# GNU Radio is deliberately absent: it is GPL-3.0 and is invoked
+# out-of-process over files, never linked.
+dev = [
+    "pytest>=7.4",
+    "galois>=0.3",      # MIT  - independent GF(2)/GF(256) check
+    "commpy>=0.8",      # BSD-3 - independent Viterbi/RS check
+]
+
+[project.scripts]
+shruti = "shruti.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/Parikshat-118/SHRUTI"
+Documentation = "https://github.com/Parikshat-118/SHRUTI/tree/main/docs"
+
+[tool.setuptools.packages.find]
+include = ["shruti*"]
+
+[tool.setuptools.package-data]
+shruti = ["web/static/**/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+filterwarnings = ["ignore::DeprecationWarning"]
+markers = ["slow: end-to-end round trips through the full chain"]

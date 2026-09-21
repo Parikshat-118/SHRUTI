@@ -1,0 +1,48 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+corpus/*.sigmf-data
+corpus/*.raw
+corpus/*.wav
+corpus/*_report/
+_blindtest.py
+node_modules/
+.venv/
+corpus/*.shruti-attest.zip
+corpus/*.sigmf-meta
+dist/
+sbom.cdx.json
+licences.json
+*.tsbuildinfo
+
+# Submission material — kept out of the public repository
+SHRUTI-SIH26147-final.md
+SHRUTI_SIH2026_Idea_Submission.pptx
+PRAMANA_SIH2026_Idea_Submission.pptx (2).pdf
+build_shruti_ppt.py
+sih_logo.png
+render/
+
+# Secrets — never commit
+.env
+.env.*
+*.pem
+*.key
+
+# Tool caches and build leftovers
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+build/
+*.log
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Local editor/agent config
+.claude/

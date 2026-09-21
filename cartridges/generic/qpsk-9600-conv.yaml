@@ -1,0 +1,16 @@
+# QPSK with a short-constraint convolutional code and block interleaving.
+# Exercises requirements (ii), (iii) and (iv) in one small, fast cartridge.
+id: generic/qpsk-9600-conv
+name: QPSK 9600 Bd, K=7 r=1/2, block interleaved
+band: UHF
+licence: CC-BY-4.0
+chain:
+  - source:      {bits: payload}
+  - scrambler:   {type: additive, poly: "0b10101001", seed: "0xFF", width: 8}
+  - fec:         {type: convolutional, K: 7, rate: "1/2", poly: ["0o171", "0o133"]}
+  - interleaver: {type: block, rows: 16, cols: 32}
+  - mapper:      {type: psk, order: 4}
+  - shaping:     {type: rrc, rolloff: 0.35}
+  - modulator:   {symbol_rate_bd: 9600, centre_hz: 0}
+priors:
+  symbol_rate_bd: {values: [4800, 9600, 19200], tolerance_ppm: 100}

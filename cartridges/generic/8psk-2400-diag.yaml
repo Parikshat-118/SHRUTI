@@ -1,0 +1,14 @@
+# 8-PSK with a DIAGONAL interleaver, which
+# shares its period with a block interleaver, differing only in the in-period
+# pattern. Included so that discriminator is exercised, not just claimed.
+id: generic/8psk-2400-diagonal
+name: 8-PSK 2400 Bd, diagonal interleaver
+band: HF
+licence: CC-BY-4.0
+chain:
+  - source:      {bits: payload}
+  - fec:         {type: convolutional, K: 5, rate: "1/2", poly: ["0o23", "0o35"]}
+  - interleaver: {type: diagonal, rows: 24, cols: 36}
+  - mapper:      {type: psk, order: 8}
+  - shaping:     {type: rrc, rolloff: 0.35}
+  - modulator:   {symbol_rate_bd: 2400, centre_hz: 1800, ssb: usb}

@@ -1,0 +1,12 @@
+# 2-FSK - the third modulation family, and the one that is NOT a
+# linear modulation, so it takes a different path through the twin entirely.
+id: generic/2fsk-1200
+name: 2-FSK 1200 Bd
+band: VHF
+licence: CC-BY-4.0
+chain:
+  - source:    {bits: payload}
+  - mapper:    {type: fsk, order: 2, h: 1.0}
+  - modulator: {symbol_rate_bd: 1200, centre_hz: 0}
+priors:
+  symbol_rate_bd: {values: [600, 1200, 2400, 9600], tolerance_ppm: 200}

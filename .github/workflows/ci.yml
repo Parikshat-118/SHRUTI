@@ -1,0 +1,155 @@
+name: CI
+
+on:
+  push: { branches: [main] }
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.13" }
+      - run: pip install -e ".[gui]" pytest
+      - name: Unit tests
+        run: pytest tests/test_units.py -q
+      - name: Round-trip oracle
+        # The twin generates its own ground truth, so these are real end-to-end
+        # assertions rather than fixtures: synth -> analyse -> assert the payload
+        # and the decode certificate both came back.
+        run: pytest tests/test_roundtrip.py -q
+      - name: Cartridges must all validate
+        run: python -m shruti.cli cartridge validate
+
+  no-egress:
+    name: no-egress (this binary cannot phone home)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.13" }
+      - run: pip install -e "." pytest
+      - name: Run the full pipeline with sockets disabled
+        # Anyone can CLAIM their tool is offline. This makes it a build artifact:
+        # socket() is replaced with something that raises, the whole chain runs
+        # anyway, and any attempt to open a connection fails the build.
+        run: |
+          cat > /tmp/no_egress.py <<'PY'
+          import socket, sys
+
+          class Blocked(RuntimeError):
+              pass
+
+          def _deny(*a, **k):
+              raise Blocked("SHRUTI attempted a network connection - this must never happen")
+
+          socket.socket = _deny
+          socket.create_connection = _deny
+          socket.getaddrinfo = _deny
+
+          import numpy as np
+          from shruti.cartridge import load_library
+          from shruti.core.bits import text_to_bits, bits_to_bytes
+          from shruti.l4_twin.chain import synthesise, SynthConfig
+          from shruti.l5_demod import soft_demodulate
+          from shruti.l6_fec.match import decode_with_cartridge
+
+          lib = load_library()
+          assert not lib.errors, lib.errors
+          MSG = "no egress. "
+          cart = lib.by_id("generic/qpsk-9600-conv")
+          r = synthesise(cart, text_to_bits(MSG * 120), SynthConfig(sps=8, snr_db=25, seed=1))
+          best = ""
+          for d in soft_demodulate(r.samples, cart.build_mapper(), r.sps, r.fs, cart.rolloff):
+              res = decode_with_cartridge(cart, d.llr)
+              txt = bits_to_bytes(res.payload_bits).decode("utf-8", errors="replace")
+              if txt.startswith(MSG[:8]):
+                  best = txt
+                  break
+          assert best.startswith(MSG[:8]), "pipeline failed offline"
+          print("full chain ran with sockets disabled; payload recovered")
+          PY
+          python /tmp/no_egress.py
+
+  sbom:
+    name: SBOM
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.13" }
+      - run: pip install -e ".[gui]" cyclonedx-bom
+      - name: Generate CycloneDX SBOM with pinned hashes
+        run: cyclonedx-py environment -o sbom.cdx.json
+      - uses: actions/upload-artifact@v4
+        with: { name: sbom, path: sbom.cdx.json }
+
+  licences:
+    name: licence audit (no GPL, no LGPL)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.13" }
+      - run: pip install -e ".[gui]" pip-licenses
+      - name: Fail on any copyleft dependency
+        # A deliberately permissive dependency tree is what lets an adopter
+        # fork privately and ship without publishing, so it is enforced here
+        # rather than merely documented.
+        run: |
+          pip-licenses --format=json > licences.json
+          python - <<'PY'
+          import json, sys
+          bad = []
+          for p in json.load(open("licences.json")):
+              lic = (p.get("License") or "").upper()
+              if "GPL" in lic and "LGPL" not in lic:
+                  bad.append((p["Name"], p["License"]))
+              elif "LGPL" in lic:
+                  bad.append((p["Name"], p["License"]))
+          if bad:
+              print("copyleft dependencies found:")
+              for n, l in bad:
+                  print(f"  {n}: {l}")
+              sys.exit(1)
+          print("licence audit clean: no GPL, no LGPL")
+          PY
+      - uses: actions/upload-artifact@v4
+        with: { name: licences, path: licences.json }
+
+  frontend:
+    name: frontend build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "24" }
+      - run: npm ci --no-fund --no-audit
+        working-directory: frontend
+      - run: npm run build
+        working-directory: frontend
+      - name: No runtime CDN references
+        # The GUI must load on a machine that has never been online.
+        run: |
+          if grep -rhoE "(src|href)=\"https?://" shruti/web/static/ ; then
+            echo "built bundle references an external origin"; exit 1
+          fi
+          echo "no external origins in the built bundle"
+
+  docker:
+    name: docker build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t shruti:ci .
+      - name: Container starts and serves
+        run: |
+          docker run -d --name shruti -p 7860:7860 shruti:ci
+          for i in $(seq 1 30); do
+            curl -sf http://127.0.0.1:7860/api/health && break || sleep 2
+          done
+          curl -sf http://127.0.0.1:7860/api/health
+          docker rm -f shruti

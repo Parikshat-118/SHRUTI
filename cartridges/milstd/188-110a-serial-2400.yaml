@@ -1,0 +1,29 @@
+# MIL-STD-188-110A serial-tone HF modem, 2400 bps configuration.
+#
+# The archetypal HF waveform and the reason the audio-baseband path exists: this
+# arrives as real-valued SSB audio in a .wav file, centred near 1800 Hz inside a
+# 300-3400 Hz passband, NOT as complex IQ.
+#
+# Parameters here follow the public description of the serial-tone mode.  Treat
+# the interleaver geometry as indicative rather than authoritative until checked
+# against the standard itself - it is declared so it can be corrected in data.
+id: mil-std-188-110a/serial-2400
+name: MIL-STD-188-110A serial tone, 2400 bps
+band: HF
+licence: CC-BY-4.0
+
+chain:
+  - source:      {bits: payload}
+  - fec:         {type: convolutional, K: 7, rate: "1/2", poly: ["0o133", "0o171"]}
+  - interleaver: {type: block, rows: 40, cols: 72}
+  - scrambler_post: {type: additive, poly: "0o1001", seed: "0xBAD", width: 9}
+  - mapper:      {type: psk, order: 8, mapping: gray}
+  - shaping:     {type: rrc, rolloff: 0.35}
+  - modulator:   {symbol_rate_bd: 2400, centre_hz: 1800, ssb: usb}
+
+priors:
+  symbol_rate_bd: {values: [2400], tolerance_ppm: 50}
+  centre_hz:      {range: [1500, 2000]}
+
+identifiability:
+  centre_hz: absolute_if_sidecar_else_audio_relative
