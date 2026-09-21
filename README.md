@@ -254,4 +254,3 @@ Stated up front rather than left to be discovered:
 
 ---
 
-*Apache-2.0. Runs air-gapped on an ordinary laptop, no GPU, no cloud, no licence server.*
