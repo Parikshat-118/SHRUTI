@@ -1,5 +1,8 @@
+import { readFileSync } from 'node:fs'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+
+const { version } = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8'))
 
 // Built output goes straight into the Python package so `shruti gui` serves it
 // with no extra step, and so the air-gapped install is one folder copy.
@@ -8,6 +11,7 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   base: './',
+  define: { __APP_VERSION__: JSON.stringify(version) },
   build: {
     outDir: '../shruti/web/static',
     emptyOutDir: true,

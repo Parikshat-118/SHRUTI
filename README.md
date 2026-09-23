@@ -1,121 +1,110 @@
-# SHRUTI — blind signal exploitation, samples to bits
+<div align="center">
 
-> `śruti` (श्रुति) — that which is heard. `artha` (अर्थ) — its meaning.
+# SHRUTI
 
-Give SHRUTI an unlabelled `.IQ` or `.wav` recording and it works out how to
-**rebuild** the signal, rebuilds it, and compares the reconstruction against your
-original samples. Then it finishes the job: undoes the interleaving, corrects the
-errors, and reads the message.
+**Blind signal exploitation — from raw samples to decoded bits**
 
-```
-$ shruti selftest --message "The quick brown fox jumps over the lazy dog."
+`śruti` (श्रुति) — *that which is heard*
 
-  Randomising the transmitter...
-  Transmitter configured and WITHHELD.
-  The analyser is started now. It receives that file and nothing else.
-------------------------------------------------------------------------
-VERDICT: IDENTIFIED
-  physical:  8-PSK @ 2400.0 Bd (EVM 0.035, SNR 29.8 dB)
-  waveform:  generic/8psk-2400-diagonal (re-encode agreement 1.000)
-  gated:     fec_reconstruction: DISABLED — needs ≥ 10000 bits, this capture holds 8004
+**[▶ Live demo — shruti-55e53.web.app](https://shruti-55e53.web.app)**
 
-  RECOVERED PAYLOAD:
-    "The quick brown fox jumps over the lazy dog."
-------------------------------------------------------------------------
-  RESULT: PASS - the sentence came back.
-```
+</div>
+
+![SHRUTI — landing page](docs/ui/01-landing.jpg)
+
+Hand SHRUTI an unlabelled `.IQ` or `.wav` recording. It works out how the signal
+was built — sample rate, modulation, symbol rate, interleaver, error-correcting
+code, frame structure — rebuilds it, compares the reconstruction against the
+original samples, and reads the message. Nothing is asked of the analyst: no
+sample rate, no data type, no centre frequency.
 
 **The error-correcting code is not the last obstacle before the payload — it is
 the most precise measuring instrument in the recording.** If any upstream
-estimate is even slightly wrong the code does not decode. So when the message
+estimate is even slightly wrong, the code does not decode. So when the message
 appears, the measurements are not *confident* — they are **demonstrated**.
 
 ---
 
-## Quick start
+## Try it
+
+**In the browser.** Open the [live demo](https://shruti-55e53.web.app), press
+**Explore a mission**, then **Decode this signal**. Each mission is a capture the
+engine was handed blind, with its transmitter configuration withheld. The
+console walks through every stage of the analysis, then puts what was sent
+beside what came back.
+
+**Locally.** The interface is self-contained — every asset is bundled and
+nothing is fetched at runtime:
 
 ```bash
-pip install -e ".[gui]"
-shruti selftest                 # end-to-end blind self-test
-shruti gui                      # browser interface at http://127.0.0.1:8000
+cd frontend
+npm install
+npm run dev
 ```
-
-```bash
-shruti analyse capture.wav --report out/          # analyse a real file
-shruti synth out.sigmf --cartridge ccsds/tm-concatenated --snr 8
-shruti cartridge list                             # the waveform library
-```
-
-**Nothing is asked of you.** No sample rate, no data type, no centre frequency —
-L0 infers all of it, tells you what it inferred and why, and lets you override.
 
 ---
 
 ## The interface
 
-`shruti gui` serves a browser interface at `http://127.0.0.1:8000`. Every asset is
-served from the process itself — no CDN, because on an air-gapped machine there
-is no CDN.
+### Mission library
 
-### Landing — drop a file, or run the self-test
+![Mission library](docs/ui/02-missions.jpg)
 
-![Landing state](docs/ui/01-empty-state.png)
+Two captures, chosen to exercise both container paths:
 
-Two ways in: drop a capture, or press **Randomise & run** to have the tool
-generate a signal, forget the configuration, and analyse it blind.
-
-### A completed self-test
-
-![Self-test result](docs/ui/02-selftest-result.png)
-
-The sentence that went in came back out, the withheld transmitter configuration
-is revealed for comparison, and the verdict reports re-encode agreement rather
-than a confidence score.
-
-### Spectrum, constellation, waterfall, entropy
-
-![Plots](docs/ui/04-plots.png)
-
-### Every measurement, with its provenance
-
-![Panels](docs/ui/05-panels.png)
-
-Container inference is shown rather than hidden — *how this was determined* is a
-disclosure on every panel, not a footnote. The waveform ranking lists what was
-rejected alongside what matched.
-
-### Bilingual
-
-![Hindi interface](docs/ui/06-hindi.png)
-
-### Hold-out mode — a genuinely blind run
-
-![Hold-out mode](docs/ui/07-hold-out.png)
-
-With the waveform's own cartridge removed from the library, the library-match
-track cannot fire and the blind reconstruction tracks have to do the work
-unaided.
-
-> The full set, including the whole-page capture, is in [`docs/ui/`](docs/ui).
-> Regenerate them against a running server with
-> `python scripts/capture_ui.py` (needs `playwright`).
-
----
-
-## Capabilities
-
-| Capability | Where | Status |
+| | Mission 01 — Deep-space telemetry | Mission 02 — HF data relay |
 |---|---|---|
-| Sampling frequency, modulation, FEC, interleaving | `l0_container`, `l3_proposals`, `l6_fec` | ✅ |
-| Demodulate **FSK, QAM, PSK** | `l5_demod` — 2/4-FSK, 16/32/64-QAM, BPSK/QPSK/8-PSK/OQPSK/π4-DQPSK | ✅ |
-| De-interleave **block, convolution, diagonal, pseudo random** | `l6_fec/interleave.py` — all four by name | ✅ |
-| FEC — **short-constrained convolutional + Viterbi, RS, concatenated, LDPC** | `l6_fec/{conv,rs,ldpc}.py` | ✅ |
-| Bit stream correlation → header and payload | `l7_bits` — entropy segmentation, field typing | ✅ |
-| **GUI**: spectrum, **constellation**, **waterfall** | `shruti/web` + `frontend/` | ✅ |
-| HF / VHF / UHF | Watterson channel (ITU-R F.1487), SSB audio path | ✅ |
-| `.IQ` and `.wav` handled differently | Mono-SSB vs IQ-in-stereo decided by Hermitian test | ✅ |
-| Spectral relationship across both container types | The twin renders **both from one parameter set** | ✅ |
-| Sensor-to-sensor parameter variation | Per-sensor profiles, cross-file consistency | ✅ |
+| **Recording** | SigMF, complex IQ, 16 MS/s, tuned to 8.42 GHz | Stereo I/Q `.wav`, 19.2 kS/s |
+| **Waveform (withheld)** | CCSDS TM: RS(255,223), block interleaver, pseudo-randomiser, K=7 rate-½ convolutional, QPSK | MIL-STD-188-110A serial tone: K=7 rate-½ convolutional, 40×72 block interleaver, scrambler, 8-PSK |
+| **SHRUTI recovered** | QPSK at 2 MBd, carrier +3150.1 Hz, message intact | 8-PSK at 2400 Bd, carrier +37.0 Hz, message intact |
+
+### The decode sequence
+
+![Decode sequence](docs/ui/04-decode-sequence.jpg)
+
+Each mission opens by stepping through the stages in the order the engine
+reached them: container, physical layer, soft demodulation, code match, frame
+structure, verdict.
+
+### The console
+
+![Console — deep-space telemetry](docs/ui/05-console.jpg)
+
+The constellation is drawn on the body the signal came from, with the ideal
+lattice recovered by the M-th power estimator and laid over the received cloud.
+The planet turns, and can be dragged to spin. Beside it: the spectrum, how many
+samples became how many bits, the verdict and the re-encode agreement.
+
+![Console — HF data relay](docs/ui/09-console-hf.jpg)
+
+### Ground truth — what was sent, and what came back
+
+![Ground truth](docs/ui/06-ground-truth.jpg)
+
+Every measurement is set against the configuration SHRUTI was never shown. On
+Mission 01 the symbol rate lands within 0.03 ppm and the carrier offset within
+0.13 Hz. SNR is compared on the same footing: the transmitter's full-band figure
+is converted to in-band (+10·log₁₀ of the samples per symbol) before it is set
+beside the matched-filter estimate.
+
+### Signal, bits and provenance
+
+![Signal](docs/ui/07-signal.jpg)
+
+![Bits](docs/ui/08-bits.jpg)
+
+Click any byte of the payload, or any field of the frame, and the symbols that
+carried it light up in the constellation and the samples that carried those
+light up in the waterfall. The mapping between layers is arithmetic rather than
+a lookup table, because the chain is modelled end to end.
+
+### The pipeline, in Hindi, and on a phone
+
+| | |
+|---|---|
+| ![Pipeline](docs/ui/03-pipeline.jpg) | ![Hindi](docs/ui/10-hindi.jpg) |
+
+<p align="center"><img src="docs/ui/11-mobile.jpg" width="300" alt="The console on a phone"></p>
 
 ---
 
@@ -125,29 +114,29 @@ unaided.
 L0  container + format inference     wav / raw IQ / SigMF, dtype sniffing, anchoring
 L1  receiver self-model              reference-free artefact tests
 L2  wideband detection               OS-CFAR, emitter tracking
-L3  proposal short-list              classical estimators (the CNN is 11th of 12)
+L3  proposal short-list              classical estimators first
 L4  the twin                         forward synthesis + inversion  ← the project
 L4b iterative peeling                subtract the strongest, re-scan
 L5  soft demodulation                LLRs, not hard bits; ambiguities enumerated
-L6  interleaver + FEC                tracks A / B / C
+L6  interleaver + FEC                library match, algebraic, soft-syndrome
 L7  bitstream structure              framing, entropy, field typing
-L8  GUI, SigMF, evidence
+L8  interface, SigMF, evidence
          ▲                                    │
          └────── closure feedback ────────────┘
 ```
 
-**The feedback arrow is the idea. Everything else is competent engineering.**
+**The feedback arrow is the idea.** Three things follow from having a
+*generative* model rather than a classifier:
 
-Three things follow from having a *generative* model rather than a classifier:
+1. **Verification by resynthesis.** Re-encode what was recovered, re-render it,
+   and difference it against the original samples.
+2. **A test oracle that never runs dry.** Every parameter SHRUTI recovers is an
+   *input* to its own synthesiser, so labelled test cases are unlimited — the
+   thing that analyses signals is the same thing that makes them.
+3. **Calibrated refusal.** A χ² goodness-of-fit, not a dB threshold, and
+   capabilities that grey themselves out when a capture is too short.
 
-1. **Verification by resynthesis.** Re-encode what was recovered, re-render, and
-   difference against the original samples.
-2. **The test oracle.** Every parameter SHRUTI recovers is an *input* to the
-   synthesiser, so property-based tests generate unlimited labelled cases.
-   *We cannot run out of test data, because the thing that analyses signals is
-   the same thing that makes them.*
-3. **Calibrated refusal.** A χ² goodness-of-fit p-value, not a dB threshold, and
-   capabilities that grey themselves out when the capture is too short.
+The layer-by-layer design is in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ---
 
@@ -166,82 +155,86 @@ chain:
   - modulator:      {symbol_rate_bd: 2400, centre_hz: 1800, ssb: usb}
 ```
 
-One file, and every layer picks it up at once — the twin gets a forward model,
-L6 gets something to match against, the report gets to say *"consistent with
-MIL-STD-188-110A"* instead of *"8-PSK"*.
+One file, and every layer picks it up at once: the twin gets a forward model,
+the FEC layer gets something to match against, and the report gets to say
+*"consistent with MIL-STD-188-110A"* instead of *"8-PSK"*. **Adding a waveform
+is writing a text file, not changing code.** The library in
+[`cartridges/`](cartridges) covers CCSDS telemetry, MIL-STD-188-110A and a set
+of generic PSK, QAM and FSK waveforms.
 
-**Adding a waveform is writing a text file, not changing code.** That is what
-makes *"we can support a new emitter next month"* true rather than rhetorical,
-and it draws the open/classified boundary a government needs: the engine is
-Apache-2.0, the cartridge library is data and can be held privately.
+---
+
+## What is in this repository
+
+This repository carries the complete interface, the architecture, the waveform
+library and the foundation layers of the engine. The decoding core is held back
+while the project is in development and will be published with the final
+release.
+
+| Part | Where | Here |
+|---|---|---|
+| Web interface — landing, console, bilingual, recorded missions | [`frontend/`](frontend) | ✅ |
+| Architecture and deployment documents | [`docs/`](docs) | ✅ |
+| Waveform library — 10 cartridges | [`cartridges/`](cartridges) | ✅ |
+| Core maths — GF(2) linear algebra, statistics, bit utilities | `shruti/core` | ✅ |
+| Cartridge schema and loader | `shruti/cartridge` | ✅ |
+| L0 container and format inference — wav, raw IQ, SigMF | `shruti/l0_container` | ✅ |
+| L3 classical estimators | `shruti/l3_proposals` | ✅ |
+| L4 modulation mappers and pulse shaping | `shruti/l4_twin` | ✅ |
+| L6 GF(256), the four interleaver families, scramblers | `shruti/l6_fec` | ✅ |
+| L7 bit-stream correlation | `shruti/l7_bits` | ✅ |
+| Web API and plot extraction | `shruti/web` | ✅ |
+| Every layer's public interface (`__init__.py`) | `shruti/l*/` | ✅ |
+| The twin's forward chain and channel models, soft demodulation, FEC decoders and library matching, frame recovery, evidence bundles, the analysis pipeline, the test suite | — | 🔒 final release |
+
+Until the core is published, the Python package here does not analyse captures
+on its own; the interface runs standalone on the recorded missions.
+
+---
+
+## Design commitments
+
+- **Nothing is asked of the analyst.** No sample-rate dialogue, no dtype
+  picker. Container inference says what it concluded and why, on every panel.
+- **Never needs a network.** No licence server, no model download, no
+  telemetry, no CDN. The interface bundles every asset, and
+  [CI](.github/workflows/ci.yml) fails the build if the bundle references an
+  external origin.
+- **Permissive dependencies only.** Every runtime dependency is BSD-3, MIT or
+  Apache-2.0 — zero GPL, zero LGPL — enforced by a CI licence audit. SigMF is
+  implemented against the spec; GF(2), GF(256), Viterbi, RS and LDPC are
+  SHRUTI's own.
+- **Bilingual.** English and हिन्दी throughout.
 
 ---
 
 ## Deployment
 
-The deployment ladder is backed by the `Dockerfile` and `docs/DEPLOY.md`:
-
-| Tier | Target | Cost |
+| Tier | Target | Status |
 |---|---|---|
-| T0 | Static browser build → GitHub Pages | ₹0 |
-| T1 | Live engine → Hugging Face Spaces (Docker, free CPU) | ₹0 |
-| T2 | Google Cloud Run — same image, scale to zero | ₹0 |
-| T3 | Colab notebook, CPU-only | ₹0 |
-| **T4** | **Offline installer → air-gapped laptop. The real product** | **₹0** |
-| T5 | Batch mode over an archive | ₹0 |
+| T0 | Static interface → Firebase Hosting / GitHub Pages | **live** — [shruti-55e53.web.app](https://shruti-55e53.web.app) |
+| T1 · T2 | Engine in a container → Hugging Face Spaces / Google Cloud Run | with the final release |
+| T4 | Offline installer for an air-gapped laptop — the real product | with the final release |
 
-**SHRUTI never needs a network** — not for licensing, models, updates or
-telemetry. The [`no-egress` CI job](.github/workflows/ci.yml) runs the whole
-pipeline with `socket()` disabled and fails the build if anything tries to open
-a connection. The property is enforced by the build, not asserted in prose.
+Details in [`docs/DEPLOY.md`](docs/DEPLOY.md).
 
 ---
 
-## Licence position
-
-**Every runtime dependency is BSD-3, MIT or Apache-2.0. Zero LGPL. Zero GPL.**
-
-That is deliberate and enforced by CI. It is what lets the capability be forked
-privately, extended with material that is never published, and deployed without
-a procurement conversation about copyleft obligations.
-
-- SigMF is implemented against the spec rather than importing LGPL `sigmf-python`
-- Audio I/O uses stdlib `wave`, not libsndfile
-- GF(2), GF(256), Viterbi, RS and LDPC are ours — `galois`/`commpy` are **test-only** cross-checks
-- **GNU Radio is an oracle, never a dependency** — invoked out-of-process over files
-
-Engine: Apache-2.0. Cartridges and corpus: CC-BY-4.0, licensed separately.
-
----
-
-## Testing
-
-```bash
-pytest tests/test_units.py      # 58 unit tests, ~7 s
-pytest tests/test_roundtrip.py  # the oracle: synth → analyse → assert
-```
-
-The round-trip suite asserts that for **every** cartridge the exact payload comes
-back *and* a decode certificate is issued — across payload lengths, carrier
-offsets and timing offsets.
-
----
-
-## Honest limits
+## Known limits
 
 Stated up front rather than left to be discovered:
 
-- **An unknown pseudo-random interleaver permutation is not blindly recoverable.**
-  SHRUTI detects it and bounds its period and depth. It does not guess.
+- **An unknown pseudo-random interleaver permutation is not blindly
+  recoverable.** SHRUTI detects it and bounds its period and depth; it does not
+  guess.
 - **Absolute sampling frequency is not identifiable from a headerless file.**
   Every measurable quantity is a ratio. SHRUTI says so, then resolves it from
   sidecars, filename conventions or in-band anchors, and reports which.
+- **Mono SSB audio and ionospheric fading are being hardened.** The twin renders
+  both, but they do not yet decode reliably — which is why the HF mission is an
+  I/Q recording on a clean channel.
 - **RS uses the conventional basis**, not CCSDS's dual-basis symbol
-  representation. Flagged in each cartridge as `basis: conventional`.
-- **L6 tracks B and C** (algebraic and soft-syndrome reconstruction of *unknown*
-  codes) work on a constrained hypothesis grid, not arbitrary codes.
-- The LDPC family is SHRUTI-defined and reproducible from `(n, wc, wr, seed)`;
-  published matrices load via the documented `from_alist` hook.
+  representation; each cartridge declares `basis: conventional`.
 - Puncturing patterns are implemented but not yet verified bit-for-bit against
   the CCSDS Blue Book.
 
@@ -249,8 +242,6 @@ Stated up front rather than left to be discovered:
 
 ## Documents
 
-- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — layer-by-layer detail
-- [`docs/DEPLOY.md`](docs/DEPLOY.md) — every deployment tier, step by step
-
----
-
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — layer-by-layer design
+- [`docs/DEPLOY.md`](docs/DEPLOY.md) — every deployment tier
+- [`docs/ui/`](docs/ui) — interface screenshots, and how to regenerate them

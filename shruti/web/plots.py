@@ -2,7 +2,7 @@
 
 Every view returns not just values but **where those values came from in the
 original sample stream**.  That is the whole mechanism behind provenance
-brushing (PS: *"improve feature visibility of signals with the help of GUI"*):
+brushing:
 
     Click a decoded byte and the exact symbols that carried it light up in the
     constellation, the exact samples light up in the waterfall, and the exact

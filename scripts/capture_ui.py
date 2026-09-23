@@ -1,9 +1,9 @@
-"""Capture the SHRUTI GUI in each of its states, to docs/ui/.
+"""Capture the SHRUTI interface in each of its states, to docs/ui/.
 
-Run against a live server (``shruti gui``) so the screenshots are of the real
-interface rather than a mock:
+Serves the built bundle (shruti/web/static) from a throwaway local HTTP server,
+so no engine is needed: the two recorded missions ship inside the bundle.
 
-    python -m shruti.cli gui --port 8000 &
+    cd frontend && npm run build && cd ..
     python scripts/capture_ui.py
 
 Every shot is taken at a fixed viewport so the images stay comparable and the
@@ -12,76 +12,122 @@ README renders them at a predictable size.
 
 from __future__ import annotations
 
-import sys
-import time
+import functools
+import http.server
+import threading
 from pathlib import Path
 
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import Page, sync_playwright
 
-BASE = sys.argv[1] if len(sys.argv) > 1 else "http://127.0.0.1:8000"
-OUT = Path(__file__).resolve().parent.parent / "docs" / "ui"
-VIEWPORT = {"width": 1600, "height": 1000}
-
-
-def shot(page, name: str, full: bool = False) -> None:
-    path = OUT / f"{name}.png"
-    page.screenshot(path=str(path), full_page=full)
-    print(f"  {path.relative_to(OUT.parent.parent)}  ({path.stat().st_size // 1024} kB)")
+ROOT = Path(__file__).resolve().parent.parent
+SITE = ROOT / "shruti" / "web" / "static"
+OUT = ROOT / "docs" / "ui"
+DESKTOP = {"width": 1600, "height": 1000}
+PHONE = {"width": 390, "height": 844}
 
 
-def run_selftest(page, hold_out: bool = False) -> None:
-    """Press Randomise & run, then wait for the outcome banner to land."""
-    if hold_out:
-        page.locator(".selftest .check input[type=checkbox]").check()
-    page.locator("button.primary").click()
-    page.wait_for_selector(".selftest-outcome", timeout=180_000)
-    page.wait_for_timeout(600)  # let the plots finish painting
+class _Quiet(http.server.SimpleHTTPRequestHandler):
+    def log_message(self, *args) -> None:
+        pass
+
+
+def serve() -> tuple[http.server.ThreadingHTTPServer, str]:
+    handler = functools.partial(_Quiet, directory=str(SITE))
+    httpd = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    return httpd, f"http://127.0.0.1:{httpd.server_address[1]}"
+
+
+def shot(page: Page, name: str) -> None:
+    path = OUT / f"{name}.jpg"
+    page.screenshot(path=str(path), type="jpeg", quality=88)
+    print(f"  docs/ui/{path.name}  ({path.stat().st_size // 1024} kB)")
+
+
+def section(page: Page, element_id: str) -> None:
+    page.evaluate(f"document.getElementById('{element_id}').scrollIntoView({{block: 'start'}})")
+    page.wait_for_timeout(700)
+
+
+def open_mission(page: Page, base: str, mission: str) -> None:
+    """Open a mission and let the decode sequence play out."""
+    page.goto(f"{base}/#/mission/{mission}")
+    page.wait_for_selector(".replay", timeout=15_000)
+    page.wait_for_selector(".replay", state="detached", timeout=20_000)
+    page.evaluate("window.scrollTo(0, 0)")
+    page.wait_for_timeout(900)
 
 
 def main() -> int:
+    if not (SITE / "index.html").exists():
+        raise SystemExit("no build found - run `npm run build` in frontend/ first")
     OUT.mkdir(parents=True, exist_ok=True)
-    with sync_playwright() as p:
-        browser = p.chromium.launch()
-        page = browser.new_page(viewport=VIEWPORT, device_scale_factor=2)
-        page.goto(BASE, wait_until="networkidle")
+    httpd, base = serve()
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.launch()
+            page = browser.new_page(viewport=DESKTOP)
 
-        # 1 - the landing state: drop zone and the self-test panel, nothing else
-        shot(page, "01-empty-state")
+            # 1 - landing: the hero
+            page.goto(f"{base}/#/", wait_until="networkidle")
+            page.wait_for_timeout(1500)
+            shot(page, "01-landing")
 
-        # 2 - a completed self-test, above the fold: outcome banner + verdict
-        run_selftest(page)
-        shot(page, "02-selftest-result")
+            # 2 - the mission library, as "Explore a mission" brings it into view
+            page.locator(".hero-ctas .btn-primary").click()
+            page.wait_for_timeout(1600)
+            shot(page, "02-missions")
 
-        # 3 - the same analysis, whole page: plots and every panel
-        shot(page, "03-full-analysis", full=True)
+            # 3 - the pipeline, L0 to L8 with the closure feedback
+            section(page, "how")
+            page.evaluate("window.scrollBy(0, -40)")
+            page.wait_for_timeout(500)
+            shot(page, "03-pipeline")
 
-        # 4 - the plot grid on its own
-        page.locator(".plots-grid").scroll_into_view_if_needed()
-        page.wait_for_timeout(400)
-        shot(page, "04-plots")
+            # 4 - the decode sequence, part-way through
+            page.goto(f"{base}/#/mission/deep-space-telemetry")
+            page.wait_for_selector(".replay", timeout=15_000)
+            page.wait_for_timeout(1900)
+            shot(page, "04-decode-sequence")
 
-        # 5 - the panel grid: container reasoning, measurements, ranking, payload
-        page.locator(".panel-grid").scroll_into_view_if_needed()
-        page.wait_for_timeout(400)
-        shot(page, "05-panels")
+            # 5 - the console once it has landed
+            page.wait_for_selector(".replay", state="detached", timeout=20_000)
+            page.evaluate("window.scrollTo(0, 0)")
+            page.wait_for_timeout(900)
+            shot(page, "05-console")
 
-        # 6 - Hindi. The interface is bilingual; this is not a token gesture
-        page.locator("button.lang").click()
-        page.wait_for_timeout(400)
-        page.mouse.wheel(0, -4000)
-        page.wait_for_timeout(400)
-        shot(page, "06-hindi")
-        page.locator("button.lang").click()
-        page.wait_for_timeout(300)
+            # 6 - what was sent against what came back
+            section(page, "truth")
+            shot(page, "06-ground-truth")
 
-        # 7 - hold-out mode: the waveform's own cartridge is removed from the
-        #     library, so the blind tracks have to do the work unaided
-        page.reload(wait_until="networkidle")
-        run_selftest(page, hold_out=True)
-        shot(page, "07-hold-out", full=True)
+            # 7 - spectrum, constellation and waterfall
+            section(page, "signal")
+            shot(page, "07-signal")
 
-        browser.close()
-    print(f"\nwrote {len(list(OUT.glob('*.png')))} screenshots to {OUT}")
+            # 8 - bits: one byte selected, traced back through the entropy profile
+            page.locator(".hexdump button").nth(3).click()
+            section(page, "bits")
+            shot(page, "08-bits")
+
+            # 9 - the second mission: an HF modem, drawn on Earth
+            open_mission(page, base, "hf-data-relay")
+            shot(page, "09-console-hf")
+
+            # 10 - Hindi
+            page.goto(f"{base}/#/", wait_until="networkidle")
+            page.locator(".topnav .lang").click()
+            page.wait_for_timeout(1200)
+            shot(page, "10-hindi")
+
+            # 11 - phone
+            phone = browser.new_page(viewport=PHONE, device_scale_factor=2, is_mobile=True, has_touch=True)
+            open_mission(phone, base, "deep-space-telemetry")
+            shot(phone, "11-mobile")
+
+            browser.close()
+    finally:
+        httpd.shutdown()
+    print(f"\nwrote {len(list(OUT.glob('*.jpg')))} screenshots to {OUT}")
     return 0
 
 

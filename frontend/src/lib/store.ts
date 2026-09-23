@@ -12,6 +12,7 @@
  */
 import { create } from 'zustand'
 import type { AnalysisResult, ProvenanceMap } from './types'
+import type { Catalogue } from './missions'
 
 export type Layer = 'bit' | 'symbol' | 'sample'
 
@@ -22,32 +23,69 @@ export interface Selection {
   source: string
 }
 
+/** Where the result on screen came from. */
+export type Source =
+  | { kind: 'mission'; id: string }
+  | { kind: 'live'; label: string }
+
+/** A live action the hosted console cannot run yet, and what prompted it. */
+export type Soon = { kind: 'file'; name: string } | { kind: 'selftest' }
+
+export interface Engine {
+  /** null while the first health check is in flight. */
+  online: boolean | null
+  version: string
+  cartridges: number
+}
+
 interface State {
   result: AnalysisResult | null
+  source: Source | null
   busy: boolean
   stage: string
   error: string | null
   selection: Selection | null
   lang: 'en' | 'hi'
-  setResult: (r: AnalysisResult | null) => void
+  catalogue: Catalogue
+  engine: Engine
+  /** True while a recorded mission is being replayed stage by stage. */
+  replaying: boolean
+  soon: Soon | null
+  setResult: (r: AnalysisResult | null, source?: Source | null) => void
   setBusy: (b: boolean, stage?: string) => void
   setError: (e: string | null) => void
   select: (s: Selection | null) => void
   setLang: (l: 'en' | 'hi') => void
+  setCatalogue: (c: Catalogue) => void
+  setEngine: (e: Engine) => void
+  setReplaying: (r: boolean) => void
+  setSoon: (s: Soon | null) => void
 }
 
 export const useStore = create<State>((set) => ({
   result: null,
+  source: null,
   busy: false,
   stage: '',
   error: null,
   selection: null,
   lang: 'en',
-  setResult: (result) => set({ result, selection: null, error: null }),
+  catalogue: { cartridges: 0, missions: [] },
+  engine: { online: null, version: '', cartridges: 0 },
+  replaying: false,
+  soon: null,
+  setResult: (result, source = null) => set({ result, source, selection: null, error: null }),
   setBusy: (busy, stage = '') => set({ busy, stage }),
   setError: (error) => set({ error, busy: false }),
   select: (selection) => set({ selection }),
-  setLang: (lang) => set({ lang }),
+  setLang: (lang) => {
+    document.documentElement.lang = lang
+    set({ lang })
+  },
+  setCatalogue: (catalogue) => set({ catalogue }),
+  setEngine: (engine) => set({ engine }),
+  setReplaying: (replaying) => set({ replaying }),
+  setSoon: (soon) => set({ soon }),
 }))
 
 export interface Projected {

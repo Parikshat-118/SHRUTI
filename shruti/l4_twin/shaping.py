@@ -1,6 +1,6 @@
 """Pulse shaping and matched filtering.
 
-Root-raised-cosine is the near-universal choice in the traffic this PS targets,
+Root-raised-cosine is the near-universal choice in the traffic SHRUTI targets,
 and its roll-off is one of the parameters SHRUTI recovers.  Worth noting for the
 evaluation section: **roll-off is one of the quantities the standard public
 benchmark barely varies**, which is part of why a generative approach is right

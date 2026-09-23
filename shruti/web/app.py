@@ -1,7 +1,5 @@
-"""FastAPI backend.  The GUI is a named PS deliverable, not decoration.
-
-    *"The GUI based model will have features to take .IQ or .wav file as input
-    data..."* and *"improve feature visibility of signals with the help of GUI"*
+"""FastAPI backend.  The GUI is a deliverable in its own right, not decoration:
+it takes an .IQ or .wav file as input and makes the signal's features visible.
 
 Design rules this serves (the first two are visible within the first ten seconds
 of use):
@@ -62,7 +60,9 @@ _LIBRARY = load_library()
 def _jsonable(o: Any) -> Any:
     if isinstance(o, (np.integer,)):
         return int(o)
-    if isinstance(o, (np.floating,)):
+    # Python floats too: a match with no re-encode score carries float('nan'),
+    # and the JSON response refuses NaN outright.
+    if isinstance(o, (float, np.floating)):
         v = float(o)
         return None if (np.isnan(v) or np.isinf(v)) else v
     if isinstance(o, np.ndarray):
@@ -313,7 +313,10 @@ def api_selftest(req: SelfTestRequest) -> dict:
     from ..pipeline import analyse
 
     path, cfg = generate_challenge(req.message, seed=req.seed or None, snr_db=req.snr_db)
-    res = analyse(str(path), hold_out=req.hold_out or None)
+    # "self" holds out whichever waveform the transmitter drew - the browser
+    # cannot name it in advance, because it is not told.
+    hold_out = cfg.cartridge_id if req.hold_out == "self" else (req.hold_out or None)
+    res = analyse(str(path), hold_out=hold_out)
     cap = res.capture
 
     recovered = res.payload_text(len(req.message) * 3)
@@ -324,7 +327,7 @@ def api_selftest(req: SelfTestRequest) -> dict:
         "message": req.message,
         "recovered": recovered[:400],
         "success": bool(hit),
-        "hold_out": req.hold_out,
+        "hold_out": hold_out,
         "truth": cfg.truth,
         "transmitter": {
             "cartridge_id": cfg.cartridge_id,
