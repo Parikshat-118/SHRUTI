@@ -15,6 +15,7 @@ licences.json
 /*.pptx
 /*.pdf
 /build_*_ppt.py
+/.ppt_work/
 /*_logo.png
 /render/
 /archive/
@@ -33,9 +34,6 @@ licences.json
 /shruti/l4b_peel/peel.py
 /shruti/l5_demod/demod.py
 /shruti/l5_demod/sync.py
-/shruti/l6_fec/conv.py
-/shruti/l6_fec/ldpc.py
-/shruti/l6_fec/rs.py
 /shruti/l6_fec/match.py
 /shruti/l7_bits/fields.py
 /shruti/l7_bits/frame.py
