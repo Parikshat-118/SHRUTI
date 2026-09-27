@@ -13,10 +13,11 @@
 ![SHRUTI — landing page](docs/ui/01-landing.jpg)
 
 Hand SHRUTI an unlabelled `.IQ` or `.wav` recording. It works out how the signal
-was built — sample rate, modulation, symbol rate, interleaver, error-correcting
-code, frame structure — rebuilds it, compares the reconstruction against the
-original samples, and reads the message. Nothing is asked of the analyst: no
-sample rate, no data type, no centre frequency.
+was built — sampling frequency, modulation, symbol rate, interleaver,
+error-correcting code, frame structure — and reads the message. It only calls an
+answer proven when the signal's own error-correcting code checks out; otherwise
+it says so. Nothing is asked of the analyst: no sample rate, no data type, no
+centre frequency.
 
 **The error-correcting code is not the last obstacle before the payload — it is
 the most precise measuring instrument in the recording.** If any upstream
@@ -111,7 +112,7 @@ a lookup table, because the chain is modelled end to end.
 ## How it works
 
 ```
-L0  container + format inference     wav / raw IQ / SigMF, dtype sniffing, anchoring
+L0  container + format inference     wav / raw IQ / SigMF, dtype sniffing, rate basis
 L1  receiver self-model              reference-free artefact tests
 L2  wideband detection               OS-CFAR, emitter tracking
 L3  proposal short-list              classical estimators first
@@ -128,13 +129,19 @@ L8  interface, SigMF, evidence
 **The feedback arrow is the idea.** Three things follow from having a
 *generative* model rather than a classifier:
 
-1. **Verification by resynthesis.** Re-encode what was recovered, re-render it,
-   and difference it against the original samples.
-2. **A test oracle that never runs dry.** Every parameter SHRUTI recovers is an
-   *input* to its own synthesiser, so labelled test cases are unlimited — the
-   thing that analyses signals is the same thing that makes them.
-3. **Calibrated refusal.** A χ² goodness-of-fit, not a dB threshold, and
-   capabilities that grey themselves out when a capture is too short.
+1. **Proof from the code itself.** Decoded bits are re-encoded and checked
+   against what was received. Re-rendering the whole waveform and comparing it
+   with the original samples is the next step.
+2. **A test oracle that never runs dry.** The chain that analyses signals can
+   also make them, so labelled test files, both `.IQ` and `.wav`, are unlimited.
+3. **Honest refusal.** An answer without code proof is reported as PROBABLE,
+   never IDENTIFIED, and capabilities grey themselves out when a capture is too
+   short. A χ² goodness-of-fit test on the rebuilt waveform is planned.
+
+**What runs today.** The analysis uses L0, L3, L5, L6 and L7, and can write an
+L8 evidence bundle. L1, L2 and L4b are built and tested as separate modules but
+are not yet wired into the analysis. The twin's forward synthesis works (it
+makes every test file); inverting it and closing the feedback loop are planned.
 
 The layer-by-layer design is in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
@@ -158,7 +165,9 @@ chain:
 One file, and every layer picks it up at once: the twin gets a forward model,
 the FEC layer gets something to match against, and the report gets to say
 *"consistent with MIL-STD-188-110A"* instead of *"8-PSK"*. **Adding a waveform
-is writing a text file, not changing code.** The library in
+is writing a text file, not changing code**, as long as it is built from blocks
+SHRUTI already supports: PSK, QAM or FSK; convolutional, Reed–Solomon or LDPC
+codes; block, convolutional, diagonal or pseudo-random interleavers. The library in
 [`cartridges/`](cartridges) covers CCSDS telemetry, MIL-STD-188-110A and a set
 of generic PSK, QAM and FSK waveforms.
 
@@ -181,11 +190,11 @@ release.
 | L0 container and format inference — wav, raw IQ, SigMF | `shruti/l0_container` | ✅ |
 | L3 classical estimators | `shruti/l3_proposals` | ✅ |
 | L4 modulation mappers and pulse shaping | `shruti/l4_twin` | ✅ |
-| L6 GF(256), the four interleaver families, scramblers | `shruti/l6_fec` | ✅ |
+| L6 convolutional code with Viterbi decoding, Reed–Solomon, LDPC, GF(256), the four interleaver families, scramblers | `shruti/l6_fec` | ✅ |
 | L7 bit-stream correlation | `shruti/l7_bits` | ✅ |
 | Web API and plot extraction | `shruti/web` | ✅ |
 | Every layer's public interface (`__init__.py`) | `shruti/l*/` | ✅ |
-| The twin's forward chain and channel models, soft demodulation, FEC decoders and library matching, frame recovery, evidence bundles, the analysis pipeline, the test suite | — | 🔒 final release |
+| The twin's forward chain and channel models, soft demodulation, FEC library matching, frame recovery, evidence bundles, the analysis pipeline, the test suite | — | 🔒 final release |
 
 Until the core is published, the Python package here does not analyse captures
 on its own; the interface runs standalone on the recorded missions.
@@ -224,15 +233,24 @@ Details in [`docs/DEPLOY.md`](docs/DEPLOY.md).
 
 Stated up front rather than left to be discovered:
 
+- **Only waveforms in the library are decoded.** Anything else gets UNKNOWN or
+  PROBABLE. In a 20-file test with the true waveform removed from the library,
+  SHRUTI never claimed IDENTIFIED. Blind recovery of unknown codes is planned.
+- **Uncoded waveforms can't be proven.** With no check bits there is nothing to
+  verify, so even a correct match is reported as PROBABLE, never IDENTIFIED.
 - **An unknown pseudo-random interleaver permutation is not blindly
-  recoverable.** SHRUTI detects it and bounds its period and depth; it does not
-  guess.
+  recoverable.** SHRUTI de-interleaves it when the permutation is in the
+  cartridge; detecting an unknown one and bounding its period and depth is
+  planned.
 - **Absolute sampling frequency is not identifiable from a headerless file.**
-  Every measurable quantity is a ratio. SHRUTI says so, then resolves it from
-  sidecars, filename conventions or in-band anchors, and reports which.
+  Every measurable quantity is a ratio. SHRUTI takes the rate from the `.wav`
+  header, SigMF metadata or a recorder's filename convention and reports which;
+  for a bare raw file it says *not identifiable*. Solving it from in-band
+  anchors is planned.
 - **Mono SSB audio and ionospheric fading are being hardened.** The twin renders
-  both, but they do not yet decode reliably — which is why the HF mission is an
-  I/Q recording on a clean channel.
+  both, but in our blind tests only 2 of 6 SSB audio files and 3 of 20 fading
+  files were proven right — which is why the HF mission is an I/Q recording on a
+  clean channel.
 - **RS uses the conventional basis**, not CCSDS's dual-basis symbol
   representation; each cartridge declares `basis: conventional`.
 - Puncturing patterns are implemented but not yet verified bit-for-bit against

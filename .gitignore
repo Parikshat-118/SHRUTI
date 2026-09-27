@@ -15,7 +15,8 @@ licences.json
 /*.pptx
 /*.pdf
 /build_*_ppt.py
-/.ppt_work/
+/.ppt_*/
+/output/
 /*_logo.png
 /render/
 /archive/
